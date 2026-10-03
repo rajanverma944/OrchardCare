@@ -33,31 +33,46 @@ does this; run the build only through it.
 ### `Unable to resolve module expo-asset`
 Stale node_modules vs new prebuild. `cd mobile && npm install && npx expo prebuild -p android --no-install`, rebuild.
 
-### App crashes at launch / white or black screen on BlueStacks
-Follow in this order — each step is one build or one settings change:
+### App crashes at launch / white or black screen on BlueStacks — **SOLVED CASE**
 
-1. **Uninstall the old app first**, then install the new APK (stale native state survives
-   otherwise).
-2. Confirm `newArchEnabled=false` and `jsEngine: "jsc"` in `mobile/app.json` (v3+ APKs have both).
-   - **Hermes vs BlueStacks:** Hermes requires SSE4.2 CPU instructions; BlueStacks' virtualisation
-     sometimes doesn't expose them → SIGSEGV right when the JS engine starts (~2 s after launch),
-     *before any of our code or error screens can render*. Symptom: first launch dies around the
-     time the window animates, relaunch shows a blank (white/black) surface. JSC has no SSE4.2
-     requirement — that's why v3 switched to `"jsEngine": "jsc"`.
-3. **Enable ADB properly so logs can be pulled** (30 seconds, makes diagnosis deterministic):
-   BlueStacks Settings (gear) → Advanced → tick **Android Debug Bridge**. Without this toggle the
-   5555 port half-listens but every shell session drops with `error: closed` (this cost hours —
-   see skills/skill-android-build.md for working capture patterns).
-4. **Graphics renderer**: BlueStacks Settings → Graphics → switch renderer (OpenGL ↔ DirectX) and
-   restart BlueStacks. Some RN builds render black surfaces on one renderer only.
-5. If it still fails with ADB enabled, capture the crash in one terminal session:
-   ```bat
-   set ANDROID_ADB_SERVER_PORT=5900
-   C:\oc\tools\android-sdk\platform-tools\adb.exe start-server
-   C:\oc\tools\android-sdk\platform-tools\adb.exe connect 127.0.0.1:5555
-   C:\oc\tools\android-sdk\platform-tools\adb.exe -s 127.0.0.1:5555 logcat -d -b crash,main > C:\oc\tools\crash.log
-   ```
-   `FATAL EXCEPTION` (Java) or `SIGSEGV` (native) + stack = the diagnosis. Send the file.
+**Actual root cause (proven from crash log, 2026-10-03):**
+`@expo/vector-icons@14.1.0` resolved `expo-font@57.0.4` (the SDK-54 generation) while the app
+builds against `expo-modules-core@2.5.0` (SDK 53). At JS-context creation,
+`FontLoaderModule.definition()` calls a method that doesn't exist in the older
+expo-modules-core → `NoSuchMethodError` → instant crash ~2 s after launch, before any UI or
+error screen. Symptom: first launch dies during the window animation; relaunch shows a dead
+black/white surface. Crashes the same on both JS engines and both architectures.
+
+**Fix:** pin everything to the SDK's expected versions —
+```powershell
+cd mobile
+npx expo install expo-font @expo/vector-icons   # lets Expo pick SDK-matched versions
+npm dedupe                                       # collapse duplicate transitive copies
+npm ls expo-font                                 # must show ONE version, matching expo's
+npx expo prebuild --platform android --clean --no-install
+```
+**Lesson: when anything Expo-native crashes at launch with a weird native `NoSuchMethodError`,
+run `npm ls <suspect>` and look for nested duplicate versions from different SDK generations.**
+`npx expo install --fix` does NOT check transitive deps of non-expo packages — `expo-font` was
+invisible to it because only `@expo/vector-icons` (a plain npm dep) referenced it.
+
+Other launch-crash causes we ruled out along the way (kept here so you don't chase them again):
+- ~~Fabric/new-arch instability~~ (switched off in `app.json` — harmless to keep off)
+- ~~Hermes SSE4.2 missing on BlueStacks~~ (v3 ran JSC — crashed identically)
+- ~~missing JS bundle~~ (verified embedded in APK via zip listing)
+- ~~window rotation race~~ (`screenOrientation="portrait"` already locked in the manifest)
+
+**Enabling ADB on BlueStacks (needed for any of this diagnosis):** Settings → Advanced →
+tick *Android Debug Bridge*. Then the reliable capture pattern (servers die with their console;
+large streams drop — small on-device writes + `pull` work):
+```bat
+set ANDROID_ADB_SERVER_PORT=5900
+C:\oc\tools\android-sdk\platform-tools\adb.exe start-server
+C:\oc\tools\android-sdk\platform-tools\adb.exe connect 127.0.0.1:5555
+C:\oc\tools\android-sdk\platform-tools\adb.exe -s 127.0.0.1:5555 shell logcat -d -b crash -f /sdcard/crash.txt
+C:\oc\tools\android-sdk\platform-tools\adb.exe -s 127.0.0.1:5555 pull /sdcard/crash.txt C:\oc\tools\crash.txt
+```
+Each adb session is flaky — retry the pair; it lands within a few attempts.
 
 ### App can't reach the server ("network error" at login)
 - Backend running? `curl http://127.0.0.1:5092/health` on the PC.
