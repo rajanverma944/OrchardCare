@@ -21,6 +21,7 @@ export default function OrchardScreen() {
   const [trees, setTrees] = useState<CachedTree[]>([]);
   const [busy, setBusy] = useState(true);
   const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [code, setCode] = useState('');
   const [variety, setVariety] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -48,33 +49,48 @@ export default function OrchardScreen() {
     }, [orchardId]),
   );
 
+  /**
+   * Acquire a GPS fix, but never block the save: emulators and indoor orchard
+   * edges often have no fix, so acquisition is raced against a timeout and
+   * falls back to the orchard's recorded position.
+   */
+  async function acquirePosition(timeoutMs: number) {
+    const race = <T,>(p: Promise<T>): Promise<T | null> =>
+      Promise.race([p, new Promise<null>((r) => setTimeout(() => r(null), timeoutMs))]);
+    try {
+      const perm = await race(Location.requestForegroundPermissionsAsync());
+      if (!perm || !perm.granted) return null;
+      const last = await race(Location.getLastKnownPositionAsync());
+      if (last?.coords) {
+        return { latitude: last.coords.latitude, longitude: last.coords.longitude, accuracy: last.coords.accuracy ?? null };
+      }
+      const pos = await race(Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced }));
+      if (pos?.coords) {
+        return { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
+      }
+      return null;
+    } catch {
+      return null;
+    }
+  }
+
   async function addTree() {
+    if (saving) return;
     setError(null);
+    setSaving(true);
     try {
       const payload: Record<string, unknown> = {
         code: code.trim(),
         variety: variety.trim() || undefined,
         clientTreeId: clientId(),
       };
-      let position = { latitude: 31.21, longitude: 77.42, accuracy: null as number | null };
-      try {
-        const perm = await Location.requestForegroundPermissionsAsync();
-        if (perm.granted) {
-          const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-          position = { latitude: pos.coords.latitude, longitude: pos.coords.longitude, accuracy: pos.coords.accuracy ?? null };
-        }
-      } catch {
-        /* GPS unavailable: default to orchard area */
-      }
-      payload.latitude = position.latitude;
-      payload.longitude = position.longitude;
-      if (position.accuracy != null) payload.gpsAccuracyM = Math.round(position.accuracy);
+      const gps = await acquirePosition(8000);
+      payload.latitude = gps?.latitude ?? (route.params?.latitude as number | undefined) ?? 31.21;
+      payload.longitude = gps?.longitude ?? (route.params?.longitude as number | undefined) ?? 77.42;
+      if (gps?.accuracy != null) payload.gpsAccuracyM = Math.round(gps.accuracy);
 
       try {
-        const res = await request(`/api/trees/orchards/${orchardId}/trees`, { method: 'POST', body: JSON.stringify(payload) });
-        if (!res.duplicated) {
-          // refresh cache from response list on next focus
-        }
+        await request(`/api/trees/orchards/${orchardId}/trees`, { method: 'POST', body: JSON.stringify(payload) });
       } catch {
         // Offline: queue the creation with the orchard id embedded for sync
         await enqueue({ clientId: payload.clientTreeId as string, op: 'tree.create', payload: { ...payload, orchardId } });
@@ -87,7 +103,9 @@ export default function OrchardScreen() {
         await loadFromCache();
       } catch {}
     } catch (e: any) {
-      setError(e.message ?? 'Could not add tree');
+      setError(e?.message ?? 'Could not add tree');
+    } finally {
+      setSaving(false);
     }
   }
 
@@ -139,11 +157,13 @@ export default function OrchardScreen() {
           <Text style={{ color: palette.textDim, fontSize: ui.font.small }}>Your GPS position will be attached automatically.</Text>
           {error && <Text style={{ color: palette.red, fontSize: ui.font.small }}>{error}</Text>}
           <View style={{ flexDirection: 'row', gap: ui.gap }}>
-            <Pressable onPress={() => setAdding(false)} style={[btn(ui), { backgroundColor: '#eceff0' }]}>
+            <Pressable onPress={() => setAdding(false)} disabled={saving} style={[btn(ui), { backgroundColor: '#eceff0' }]}>
               <Text style={{ color: palette.text, fontWeight: '600', fontSize: ui.font.button }}>Cancel</Text>
             </Pressable>
-            <Pressable onPress={addTree} disabled={!code.trim()} style={[btn(ui), { backgroundColor: code.trim() ? palette.green700 : '#a9c5b3' }]}>
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Save tree</Text>
+            <Pressable onPress={addTree} disabled={!code.trim() || saving} style={[btn(ui), { backgroundColor: code.trim() && !saving ? palette.green700 : '#a9c5b3' }]}>
+              {saving
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Save tree</Text>}
             </Pressable>
           </View>
         </View>

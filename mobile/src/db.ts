@@ -11,6 +11,8 @@ export interface CachedOrchard {
   id: string;
   name: string;
   village: string | null;
+  latitude: number | null;
+  longitude: number | null;
   elevationM: number | null;
   treeCount: number;
   avgHealthScore: number | null;
@@ -53,6 +55,9 @@ export async function initDb(): Promise<void> {
     );
     CREATE TABLE IF NOT EXISTS kv (key TEXT PRIMARY KEY, value TEXT NOT NULL);
   `);
+  // Columns added after the first release: existing installs ALTER calmly.
+  try { await db.execAsync('ALTER TABLE orchards ADD COLUMN latitude REAL'); } catch { /* exists */ }
+  try { await db.execAsync('ALTER TABLE orchards ADD COLUMN longitude REAL'); } catch { /* exists */ }
 }
 
 export async function kvGet(key: string): Promise<string | null> {
@@ -69,8 +74,8 @@ export async function cacheOrchards(items: CachedOrchard[]): Promise<void> {
     await db.runAsync('DELETE FROM orchards');
     for (const o of items) {
       await db.runAsync(
-        'INSERT OR REPLACE INTO orchards (id, name, village, elevation_m, tree_count, avg_health) VALUES (?,?,?,?,?,?)',
-        [o.id, o.name, o.village, o.elevationM, o.treeCount, o.avgHealthScore],
+        'INSERT OR REPLACE INTO orchards (id, name, village, latitude, longitude, elevation_m, tree_count, avg_health) VALUES (?,?,?,?,?,?,?,?)',
+        [o.id, o.name, o.village, o.latitude, o.longitude, o.elevationM, o.treeCount, o.avgHealthScore],
       );
     }
   });
@@ -78,7 +83,7 @@ export async function cacheOrchards(items: CachedOrchard[]): Promise<void> {
 
 export async function cachedOrchards(): Promise<CachedOrchard[]> {
   return db.getAllAsync<CachedOrchard>(
-    'SELECT id, name, village, elevation_m AS "elevationM", tree_count AS "treeCount", avg_health AS "avgHealthScore" FROM orchards ORDER BY name',
+    `SELECT id, name, village, latitude, longitude, elevation_m AS "elevationM", tree_count AS "treeCount", avg_health AS "avgHealthScore" FROM orchards ORDER BY name`,
   );
 }
 

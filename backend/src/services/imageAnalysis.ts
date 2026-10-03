@@ -1,5 +1,5 @@
 import sharp from 'sharp';
-import type { HealthGrade, PhotoAnalysis, PhotoDirection, TreePhotoInsight } from '../types';
+import type { HealthGrade, PhotoAnalysis, PhotoDirection, PhotoRegion, TreePhotoInsight } from '../types';
 
 /**
  * Heuristic canopy photo analysis (beta).
@@ -30,15 +30,24 @@ interface PixelClasses {
   other: number;
   total: number;
   nonSky: number;
+  /** 1 = pixel classified as brown/lesion-like, used for region detection. */
+  brownMask: Uint8Array;
+  /** 1 = pixel classified as whitish bloom, used for region detection. */
+  whiteMask: Uint8Array;
 }
 
 function classifyPixels(rgb: Uint8Array, width: number, height: number): PixelClasses {
-  const c: PixelClasses = { sky: 0, green: 0, yellow: 0, brown: 0, whiteLow: 0, other: 0, total: width * height, nonSky: 0 };
+  const c: PixelClasses = {
+    sky: 0, green: 0, yellow: 0, brown: 0, whiteLow: 0, other: 0, total: width * height, nonSky: 0,
+    brownMask: new Uint8Array(width * height),
+    whiteMask: new Uint8Array(width * height),
+  };
 
   for (let y = 0; y < height; y++) {
     const inLowerTwoThirds = y > height / 3;
     for (let x = 0; x < width; x++) {
       const i = (y * width + x) * 3;
+      const p = y * width + x;
       const r = rgb[i];
       const g = rgb[i + 1];
       const b = rgb[i + 2];
@@ -67,17 +76,75 @@ function classifyPixels(rgb: Uint8Array, width: number, height: number): PixelCl
       // Brown / necrotic lesion tones: red dominates, dull.
       if (r > 55 && r < 195 && r > g + 15 && g >= b - 10 && r - b > 22 && max < 210) {
         c.brown++;
+        c.brownMask[p] = 1;
         continue;
       }
       // Whitish bloom in the lower frame -> powdery mildew candidate.
       if (inLowerTwoThirds && min > 165 && max - min < 30) {
         c.whiteLow++;
+        c.whiteMask[p] = 1;
         continue;
       }
       c.other++;
     }
   }
   return c;
+}
+
+/**
+ * Connected-component extraction on a binary mask (4-neighbourhood).
+ * Returns bounding boxes of components above minPixels, normalised to the
+ * frame, largest first — these are the "evidence anchors" for the disease map.
+ */
+export function extractRegions(
+  mask: Uint8Array,
+  width: number,
+  height: number,
+  cls: PhotoRegion['cls'],
+): PhotoRegion[] {
+  const minPixels = Math.max(40, Math.round(width * height * 0.002));
+  const visited = new Uint8Array(mask.length);
+  const stack = new Int32Array(mask.length);
+  const found: (PhotoRegion & { px: number })[] = [];
+
+  for (let start = 0; start < mask.length; start++) {
+    if (!mask[start] || visited[start]) continue;
+    let sp = 0;
+    stack[sp++] = start;
+    visited[start] = 1;
+    let minX = width, maxX = -1, minY = height, maxY = -1, count = 0;
+
+    while (sp > 0) {
+      const p = stack[--sp];
+      const x = p % width;
+      const y = (p - x) / width;
+      count++;
+      if (x < minX) minX = x;
+      if (x > maxX) maxX = x;
+      if (y < minY) minY = y;
+      if (y > maxY) maxY = y;
+
+      if (x > 0 && mask[p - 1] && !visited[p - 1]) { visited[p - 1] = 1; stack[sp++] = p - 1; }
+      if (x < width - 1 && mask[p + 1] && !visited[p + 1]) { visited[p + 1] = 1; stack[sp++] = p + 1; }
+      if (p - width >= 0 && mask[p - width] && !visited[p - width]) { visited[p - width] = 1; stack[sp++] = p - width; }
+      if (p + width < mask.length && mask[p + width] && !visited[p + width]) { visited[p + width] = 1; stack[sp++] = p + width; }
+    }
+
+    if (count >= minPixels) {
+      const bw = maxX - minX + 1;
+      const bh = maxY - minY + 1;
+      found.push({
+        cls,
+        x: minX / width,
+        y: minY / height,
+        w: bw / width,
+        h: bh / height,
+        coverage: count / (bw * bh),
+        px: count,
+      });
+    }
+  }
+  return found.sort((a, b) => b.px - a.px).slice(0, 12).map(({ px: _px, ...r }) => r);
 }
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
@@ -112,9 +179,15 @@ export async function analyzePhotoBuffer(buffer: Buffer): Promise<PhotoAnalysis>
   if (chlorosisRisk >= 40) flags.push('chlorosis-likely');
   if (leafStrength < 40) flags.push('weak-canopy');
 
+  const regions: PhotoRegion[] = [
+    ...extractRegions(c.brownMask, info.width, info.height, 'lesion'),
+    ...extractRegions(c.whiteMask, info.width, info.height, 'bloom'),
+  ];
+
   return {
     ratios: { green, yellow, brown, white, sky: pct(c.sky, c.total), other },
     scores: { leafStrength, canopyDensity, scabRisk, mildewRisk, chlorosisRisk },
+    regions,
     flags,
     analyzedAt: new Date().toISOString(),
   };

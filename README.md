@@ -56,6 +56,7 @@ pruning surveys with yield estimation, and an offline-first mobile experience fo
 |---|---|
 | [docs/GETTING-STARTED.md](docs/GETTING-STARTED.md) | From zero to running app (prereqs, first run, smoke checklist) |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | How the system fits together; design decisions |
+| [docs/DESIGN-ANALYSIS-ADVICE.md](docs/DESIGN-ANALYSIS-ADVICE.md) | Storage tiers, findings → clustering → rule engine + LLM: the derived-advice blueprint |
 | [docs/PLAYBOOK.md](docs/PLAYBOOK.md) | Master runbook: every common task step-by-step |
 | [docs/GUARDRAILS.md](docs/GUARDRAILS.md) | Hard rules (security, data integrity, process) |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Where the project is heading |

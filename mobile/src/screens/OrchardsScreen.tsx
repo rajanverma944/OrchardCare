@@ -28,6 +28,7 @@ export default function OrchardsScreen() {
     await cacheOrchards(
       res.orchards.map((o: any) => ({
         id: o.id, name: o.name, village: o.village ?? null,
+        latitude: o.latitude ?? null, longitude: o.longitude ?? null,
         elevationM: o.elevationM ?? null, treeCount: o.treeCount ?? 0, avgHealthScore: o.avgHealthScore ?? null,
       })),
     );
@@ -109,7 +110,7 @@ export default function OrchardsScreen() {
         }
         renderItem={({ item }) => (
           <Pressable
-            onPress={() => nav.navigate('Orchard', { id: item.id, name: item.name, elevationM: item.elevationM })}
+            onPress={() => nav.navigate('Orchard', { id: item.id, name: item.name, elevationM: item.elevationM, latitude: item.latitude, longitude: item.longitude })}
             style={({ pressed }) => [card, pressed && { opacity: 0.85 }]}
           >
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>

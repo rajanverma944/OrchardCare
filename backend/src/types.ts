@@ -15,6 +15,18 @@ export interface AuthUser {
   email: string;
 }
 
+export interface PhotoRegion {
+  /** What the region looks like: brown necrotic/lesion tones or white powdery bloom. */
+  cls: 'lesion' | 'bloom';
+  /** Bounding box normalised to the photo frame (0..1, origin top-left). */
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** Share of the bounding box's pixels belonging to the class (0..1). */
+  coverage: number;
+}
+
 export interface PhotoAnalysis {
   ratios: {
     green: number;
@@ -31,6 +43,8 @@ export interface PhotoAnalysis {
     mildewRisk: number;     // 0-100
     chlorosisRisk: number;  // 0-100
   };
+  /** Located suspicious areas inside the photo (evidence anchors). */
+  regions: PhotoRegion[];
   flags: string[];
   analyzedAt: string;
 }

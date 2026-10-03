@@ -121,7 +121,7 @@ export default function TreeScreen() {
           <View style={card(ui)}>
             <Text style={{ fontSize: ui.font.h2, fontWeight: '700', color: palette.text }}>360° photo survey</Text>
             <Text style={{ color: palette.textDim, fontSize: ui.font.small, marginTop: 4 }}>
-              Walk slowly around the tree and capture one photo facing each direction. More angles = better analysis.
+              Keep the trunk centred, stand about 2 m back, and walk clockwise. One photo per direction - the checklist tracks your progress.
             </Text>
             {!capturing ? (
               <Pressable onPress={() => { setCapturing(true); setRingStep(0); }} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? palette.green900 : palette.green700, marginTop: 12 }]}>
@@ -181,9 +181,58 @@ export default function TreeScreen() {
           )}
 
           {status && <Text style={{ color: palette.green700, fontSize: ui.font.small }}>{status}</Text>}
+
+          <EvidenceMap photos={detail.photos} />
         </>
       )}
     </ScrollView>
+  );
+}
+
+const DIRECTION_LABELS: Record<string, string> = {
+  N: 'North', NE: 'North-East', E: 'East', SE: 'South-East',
+  S: 'South', SW: 'South-West', W: 'West', NW: 'North-West',
+  CLOSEUP: 'Close-up', CANOPY: 'Canopy top', TRUNK: 'Trunk', OTHER: 'Other angle',
+};
+
+/** Evidence map: suspicious areas located on the tree, each linked to its photo. */
+function EvidenceMap({ photos }: { photos: { id: string; direction: string; thumbUrl: string | null; analysis: any }[] }) {
+  const ui = useUi();
+  const rows = photos
+    .filter((p) => p.analysis?.regions?.length)
+    .flatMap((p) => p.analysis.regions.slice(0, 4).map((r: any, i: number) => ({ key: `${p.id}-${i}`, photo: p, r })));
+  if (rows.length === 0) return null;
+
+  const band = (centerY: number) =>
+    centerY < 0.33 ? 'upper canopy' : centerY < 0.66 ? 'mid canopy' : 'lower canopy / trunk';
+
+  return (
+    <View style={card(ui)}>
+      <Text style={{ fontSize: ui.font.h2, fontWeight: '700', color: palette.text }}>Disease evidence</Text>
+      <Text style={{ color: palette.textDim, fontSize: ui.font.small, marginTop: 4 }}>
+        Suspicious areas detected in your photos, located by viewing direction and height band. Open the photo to inspect the exact spot.
+      </Text>
+      {rows.map(({ key, photo, r }) => {
+        const centerY = r.y + r.h / 2;
+        return (
+          <View key={key} style={{ flexDirection: 'row', gap: 10, marginTop: 10, alignItems: 'center' }}>
+            <Image source={{ uri: photo.thumbUrl ?? undefined }} style={{ width: 48, height: 48, borderRadius: 8, backgroundColor: '#e6ebe7' }} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: ui.font.small, fontWeight: '700', color: palette.text }}>
+                {DIRECTION_LABELS[photo.direction] ?? photo.direction} · {band(centerY)}
+              </Text>
+              <Text style={{ color: palette.textDim, fontSize: ui.font.small, marginTop: 2 }}>
+                {r.cls === 'lesion' ? 'Lesion-like discolouration' : 'Whitish bloom'} · {Math.round(r.coverage * 100)}% of area
+              </Text>
+            </View>
+            <Chip label={r.cls === 'lesion' ? 'lesion' : 'bloom'} tone={r.cls === 'lesion' ? 'red' : 'amber'} />
+          </View>
+        );
+      })}
+      <Text style={{ color: palette.textDim, fontSize: ui.font.small, marginTop: 10 }}>
+        Colour-based detection (beta) - treat as hints for closer inspection, not a diagnosis.
+      </Text>
+    </View>
   );
 }
 
