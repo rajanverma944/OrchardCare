@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { param } from '../params';
 import { query } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler, ApiError } from '../middleware/error';
@@ -23,7 +24,7 @@ function localTodayISO(): string {
 sprayRouter.get(
   '/orchards/:orchardId/plan',
   asyncHandler(async (req, res) => {
-    const orchard = await getOwnedOrchard(req.params.orchardId, req.user!.id);
+    const orchard = await getOwnedOrchard(param(req, 'orchardId'), req.user!.id);
     const season = req.query.season
       ? (() => {
           const y = parseInt(String(req.query.season), 10);
@@ -80,7 +81,7 @@ sprayRouter.put(
     const body = sprayTaskUpdateSchema.parse(req.body);
     const rows = await query<{ orchard_id: string }>(
       'SELECT orchard_id FROM spray_tasks WHERE id = $1',
-      [req.params.taskId],
+      [param(req, 'taskId')],
     );
     if (rows.length === 0) throw new ApiError(404, 'task_not_found', 'Spray task not found');
     await getOwnedOrchard(rows[0].orchard_id, req.user!.id);
@@ -89,7 +90,7 @@ sprayRouter.put(
       `UPDATE spray_tasks SET status = $2, product_used = $3, notes = $4,
          completed_at = CASE WHEN $2 = 'done' THEN COALESCE($5::timestamptz, now()) ELSE completed_at END
        WHERE id = $1 RETURNING id`,
-      [req.params.taskId, body.status, body.productUsed ?? null, body.notes ?? null, body.completedAt ?? null],
+      [param(req, 'taskId'), body.status, body.productUsed ?? null, body.notes ?? null, body.completedAt ?? null],
     );
     res.json({ ok: updated.length > 0 });
   }),

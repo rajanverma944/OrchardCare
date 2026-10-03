@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { param } from '../params';
 import path from 'node:path';
 import { config } from '../config';
 import { query, type DbClient } from '../db';
@@ -58,8 +59,7 @@ export async function insertTree(
                         latitude, longitude, gps_accuracy_m, height_m, trunk_girth_cm, canopy_diameter_m,
                         health_grade, health_score, leaf_strength_score, disease_code, disease_severity,
                         disease_notes, notes, last_assessed_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,
-             CASE WHEN $14 IS NULL AND $15 IS NULL AND $16 IS NULL AND $17 IS NULL THEN NULL ELSE now() END)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
      RETURNING id`,
     [
       orchardId, body.clientTreeId ?? null, body.code, body.variety ?? null, body.rootstock ?? null,
@@ -67,6 +67,7 @@ export async function insertTree(
       body.heightM ?? null, body.trunkGirthCm ?? null, body.canopyDiameterM ?? null,
       body.healthGrade ?? null, body.healthScore ?? null, body.leafStrengthScore ?? null,
       body.diseaseCode ?? null, body.diseaseSeverity ?? null, body.diseaseNotes ?? null, body.notes ?? null,
+      body.healthGrade != null || body.healthScore != null || body.leafStrengthScore != null ? new Date() : null,
     ],
     client,
   );
@@ -76,7 +77,7 @@ export async function insertTree(
 treesRouter.get(
   '/orchards/:orchardId/trees',
   asyncHandler(async (req, res) => {
-    await getOwnedOrchard(req.params.orchardId, req.user!.id);
+    await getOwnedOrchard(param(req, 'orchardId'), req.user!.id);
     const includeInactive = req.query.includeInactive === '1';
     const rows = await query<TreeListRow>(
       `SELECT t.id, t.code, t.variety, t.block, t.latitude, t.longitude, t.height_m, t.canopy_diameter_m,
@@ -86,7 +87,7 @@ treesRouter.get(
        FROM trees t
        WHERE t.orchard_id = $1 ${includeInactive ? '' : 'AND t.is_active'}
        ORDER BY t.code`,
-      [req.params.orchardId],
+      [param(req, 'orchardId')],
     );
     res.json({
       trees: rows.map((r) => ({
@@ -115,7 +116,7 @@ treesRouter.post(
   '/orchards/:orchardId/trees',
   asyncHandler(async (req, res) => {
     const body = treeCreateSchema.parse(req.body);
-    const result = await insertTree(undefined, req.user!.id, req.params.orchardId, body);
+    const result = await insertTree(undefined, req.user!.id, param(req, 'orchardId'), body);
     res.status(result.duplicated ? 200 : 201).json(result);
   }),
 );
@@ -124,7 +125,7 @@ treesRouter.post(
 treesRouter.get(
   '/:treeId',
   asyncHandler(async (req, res) => {
-    const { tree } = await getOwnedTree(req.params.treeId, req.user!.id);
+    const { tree } = await getOwnedTree(param(req, 'treeId'), req.user!.id);
 
     const [photos, observations, surveyRows] = await Promise.all([
       query<{
@@ -224,7 +225,7 @@ treesRouter.put(
   '/:treeId',
   asyncHandler(async (req, res) => {
     const body = treeUpdateSchema.parse(req.body);
-    await getOwnedTree(req.params.treeId, req.user!.id);
+    await getOwnedTree(param(req, 'treeId'), req.user!.id);
     const rows = await query(
       `UPDATE trees SET
          code = COALESCE($2, code), variety = COALESCE($3, variety), rootstock = COALESCE($4, rootstock),
@@ -238,7 +239,7 @@ treesRouter.put(
          notes = COALESCE($19, notes), is_active = COALESCE($20, is_active), updated_at = now()
        WHERE id = $1 RETURNING id`,
       [
-        req.params.treeId, body.code ?? null, body.variety ?? null, body.rootstock ?? null,
+        param(req, 'treeId'), body.code ?? null, body.variety ?? null, body.rootstock ?? null,
         body.plantedYear ?? null, body.block ?? null, body.latitude ?? null, body.longitude ?? null,
         body.gpsAccuracyM ?? null, body.heightM ?? null, body.trunkGirthCm ?? null, body.canopyDiameterM ?? null,
         body.healthGrade ?? null, body.healthScore ?? null, body.leafStrengthScore ?? null,
@@ -253,8 +254,8 @@ treesRouter.put(
 treesRouter.delete(
   '/:treeId',
   asyncHandler(async (req, res) => {
-    await getOwnedTree(req.params.treeId, req.user!.id);
-    await query('UPDATE trees SET is_active = false, updated_at = now() WHERE id = $1', [req.params.treeId]);
+    await getOwnedTree(param(req, 'treeId'), req.user!.id);
+    await query('UPDATE trees SET is_active = false, updated_at = now() WHERE id = $1', [param(req, 'treeId')]);
     res.json({ ok: true });
   }),
 );
@@ -264,7 +265,7 @@ treesRouter.post(
   '/:treeId/observations',
   asyncHandler(async (req, res) => {
     const body = observationCreateSchema.parse(req.body);
-    const { tree } = await getOwnedTree(req.params.treeId, req.user!.id);
+    const { tree } = await getOwnedTree(param(req, 'treeId'), req.user!.id);
     await query(
       `INSERT INTO observations (tree_id, client_obs_id, observed_at, source, height_m, health_score,
                                  health_grade, leaf_strength_score, disease_code, disease_severity, notes)
@@ -295,7 +296,7 @@ treesRouter.post(
 treesRouter.post(
   '/:treeId/recalculate',
   asyncHandler(async (req, res) => {
-    const { tree } = await getOwnedTree(req.params.treeId, req.user!.id);
+    const { tree } = await getOwnedTree(param(req, 'treeId'), req.user!.id);
     const photos = await query<{ direction: string; analysis: PhotoAnalysis | null }>(
       `SELECT direction, analysis FROM tree_photos
        WHERE tree_id = $1 AND analysis IS NOT NULL AND uploaded_at > now() - interval '365 days'`,

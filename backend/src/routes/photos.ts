@@ -4,6 +4,7 @@ import path from 'node:path';
 import multer from 'multer';
 import sharp from 'sharp';
 import { Router } from 'express';
+import { param } from '../params';
 import { config } from '../config';
 import { query } from '../db';
 import { requireAuth } from '../middleware/auth';
@@ -46,7 +47,7 @@ photosRouter.post(
       throw new ApiError(415, 'unsupported_media', 'Only JPEG or PNG photos are accepted');
     }
     const meta = photoMetaSchema.parse(req.body ?? {});
-    const { tree } = await getOwnedTree(req.params.treeId, req.user!.id);
+    const { tree } = await getOwnedTree(param(req, 'treeId'), req.user!.id);
 
     if (meta.clientPhotoId) {
       const dup = await query<{ id: string }>('SELECT id FROM tree_photos WHERE client_photo_id = $1', [
@@ -115,7 +116,7 @@ photosRouter.post(
 photosRouter.get(
   '/:treeId/photos',
   asyncHandler(async (req, res) => {
-    await getOwnedTree(req.params.treeId, req.user!.id);
+    await getOwnedTree(param(req, 'treeId'), req.user!.id);
     const rows = await query<{
       id: string; direction: string; file_path: string; thumb_path: string | null;
       width: number | null; height: number | null; captured_at: Date | null; uploaded_at: Date;
@@ -123,7 +124,7 @@ photosRouter.get(
     }>(
       `SELECT id, direction, file_path, thumb_path, width, height, captured_at, uploaded_at, analysis
        FROM tree_photos WHERE tree_id = $1 ORDER BY uploaded_at DESC`,
-      [req.params.treeId],
+      [param(req, 'treeId')],
     );
     res.json({
       photos: rows.map((p) => ({
@@ -148,12 +149,12 @@ photosRouter.delete(
       `SELECT p.file_path, p.thumb_path, o.owner_id AS owner
        FROM tree_photos p JOIN trees t ON t.id = p.tree_id JOIN orchards o ON o.id = t.orchard_id
        WHERE p.id = $1`,
-      [req.params.photoId],
+      [param(req, 'photoId')],
     );
     if (rows.length === 0 || rows[0].owner !== req.user!.id) {
       throw new ApiError(404, 'photo_not_found', 'Photo not found');
     }
-    await query('DELETE FROM tree_photos WHERE id = $1', [req.params.photoId]);
+    await query('DELETE FROM tree_photos WHERE id = $1', [param(req, 'photoId')]);
     const fsp = fs.promises;
     await fsp.rm(rows[0].file_path, { force: true }).catch(() => undefined);
     if (rows[0].thumb_path) await fsp.rm(rows[0].thumb_path, { force: true }).catch(() => undefined);

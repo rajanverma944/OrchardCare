@@ -38,7 +38,16 @@ export function errorHandler(err: unknown, req: Request, res: Response, _next: N
     });
     return;
   }
-  const anyErr = err as { code?: string; message?: string; constraint?: string };
+  const anyErr = err as { code?: string; message?: string; constraint?: string; type?: string; expose?: boolean; statusCode?: number };
+  // body-parser errors (malformed JSON, oversized payloads)
+  if (anyErr?.type === 'entity.parse.failed') {
+    res.status(400).json({ error: { code: 'bad_json', message: 'Request body is not valid JSON' } });
+    return;
+  }
+  if (anyErr?.type === 'entity.too.large') {
+    res.status(413).json({ error: { code: 'payload_too_large', message: 'Request body too large' } });
+    return;
+  }
   // PostgreSQL errors
   if (anyErr?.code === '23505' || (anyErr?.constraint ?? '').includes('unique')) {
     res.status(409).json({ error: { code: 'conflict', message: 'A record with these details already exists' } });

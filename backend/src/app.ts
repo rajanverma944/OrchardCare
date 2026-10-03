@@ -4,6 +4,7 @@ import rateLimit from 'express-rate-limit';
 import helmet from 'helmet';
 import { pool } from './db';
 import { errorHandler, notFoundHandler } from './middleware/error';
+import { photoStatic } from './photoStatic';
 import { adviceRouter } from './routes/advice';
 import { authRouter } from './routes/auth';
 import { orchardsRouter } from './routes/orchards';
@@ -39,6 +40,8 @@ export function buildApp(): Express {
       res.status(503).json({ ok: false, db: 'down' });
     }
   });
+
+  app.use('/photos', photoStatic());
 
   app.use('/api/auth', authRouter);
   app.use('/api/orchards', orchardsRouter);

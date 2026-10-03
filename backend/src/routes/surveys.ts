@@ -1,22 +1,41 @@
 import { Router } from 'express';
+import { param } from '../params';
 import { query, withTransaction, type DbClient } from '../db';
 import { requireAuth } from '../middleware/auth';
 import { asyncHandler, ApiError } from '../middleware/error';
 import { countActiveTrees, getOwnedOrchard, getOwnedTree } from '../repo';
-import { estimateYieldKg, pruningVerdict, surveySummary, type SurveyEntryLike } from '../services/yieldService';
+import { estimateYieldKg, pruningVerdict, surveySummary } from '../services/yieldService';
 import { surveyCreateSchema, surveyEntryCreateSchema } from '../validation';
 
 export const surveysRouter = Router();
 surveysRouter.use(requireAuth);
 
+interface SurveyEntryRow {
+  id: string;
+  tree_id: string;
+  fruit_count_est: number | null;
+  avg_fruit_weight_g: number | null;
+  canopy_density: number | null;
+  bare_wood_ratio: number | null;
+  water_sprouts: number | null;
+  pruning_needed: string | null;
+  computed_pruning: string | null;
+  pruning_reason: string | null;
+  estimated_yield_kg: string | null;
+  notes: string | null;
+  recorded_at: Date;
+  tree_code: string;
+  variety: string | null;
+}
+
 surveysRouter.post(
   '/orchards/:orchardId/surveys',
   asyncHandler(async (req, res) => {
     const body = surveyCreateSchema.parse(req.body);
-    await getOwnedOrchard(req.params.orchardId, req.user!.id);
+    await getOwnedOrchard(param(req, 'orchardId'), req.user!.id);
     const rows = await query<{ id: string; started_at: Date }>(
       `INSERT INTO surveys (orchard_id, type, season, notes) VALUES ($1, $2, $3, $4) RETURNING id, started_at`,
-      [req.params.orchardId, body.type, body.season, body.notes ?? null],
+      [param(req, 'orchardId'), body.type, body.season, body.notes ?? null],
     );
     res.status(201).json({ surveyId: rows[0].id, startedAt: rows[0].started_at });
   }),
@@ -25,14 +44,14 @@ surveysRouter.post(
 surveysRouter.get(
   '/orchards/:orchardId/surveys',
   asyncHandler(async (req, res) => {
-    await getOwnedOrchard(req.params.orchardId, req.user!.id);
+    await getOwnedOrchard(param(req, 'orchardId'), req.user!.id);
     const rows = await query<{
       id: string; type: string; season: string; started_at: Date; completed_at: Date | null; entries: string;
     }>(
       `SELECT s.id, s.type, s.season, s.started_at, s.completed_at,
               (SELECT count(*) FROM survey_entries e WHERE e.survey_id = s.id) AS entries
        FROM surveys s WHERE s.orchard_id = $1 ORDER BY s.started_at DESC`,
-      [req.params.orchardId],
+      [param(req, 'orchardId')],
     );
     res.json({
       surveys: rows.map((s) => ({
@@ -109,7 +128,7 @@ surveysRouter.post(
   '/:surveyId/entries',
   asyncHandler(async (req, res) => {
     const body = surveyEntryCreateSchema.parse(req.body);
-    const result = await insertSurveyEntry(undefined, req.user!.id, { ...body, surveyId: req.params.surveyId });
+    const result = await insertSurveyEntry(undefined, req.user!.id, { ...body, surveyId: param(req, 'surveyId') });
     res.status(result.duplicated ? 200 : 201).json(result);
   }),
 );
@@ -119,17 +138,17 @@ surveysRouter.get(
   asyncHandler(async (req, res) => {
     const rows = await query<{ id: string; orchard_id: string; type: string; season: string; started_at: Date; completed_at: Date | null; notes: string | null }>(
       'SELECT id, orchard_id, type, season, started_at, completed_at, notes FROM surveys WHERE id = $1',
-      [req.params.surveyId],
+      [param(req, 'surveyId')],
     );
     if (rows.length === 0) throw new ApiError(404, 'survey_not_found', 'Survey not found');
     const survey = rows[0];
     await getOwnedOrchard(survey.orchard_id, req.user!.id);
 
-    const entries = await query<SurveyEntryLike & { tree_code: string; variety: string | null; notes: string | null; recorded_at: Date }>(
+    const entries = await query<SurveyEntryRow>(
       `SELECT e.*, t.code AS tree_code, t.variety
        FROM survey_entries e JOIN trees t ON t.id = e.tree_id
        WHERE e.survey_id = $1 ORDER BY e.recorded_at DESC`,
-      [req.params.surveyId],
+      [param(req, 'surveyId')],
     );
     const total = await countActiveTrees(survey.orchard_id);
 
@@ -161,7 +180,15 @@ surveysRouter.get(
         notes: e.notes,
         recordedAt: e.recorded_at,
       })),
-      summary: surveySummary(entries, total),
+      summary: surveySummary(
+        entries.map((e) => ({
+          tree_id: e.tree_id,
+          estimated_yield_kg: e.estimated_yield_kg != null ? parseFloat(e.estimated_yield_kg) : null,
+          canopy_density: e.canopy_density,
+          computed_pruning: e.computed_pruning,
+        })),
+        total,
+      ),
     });
   }),
 );
@@ -170,12 +197,12 @@ surveysRouter.post(
   '/:surveyId/complete',
   asyncHandler(async (req, res) => {
     const rows = await query<{ orchard_id: string }>('SELECT orchard_id FROM surveys WHERE id = $1', [
-      req.params.surveyId,
+      param(req, 'surveyId'),
     ]);
     if (rows.length === 0) throw new ApiError(404, 'survey_not_found', 'Survey not found');
     await getOwnedOrchard(rows[0].orchard_id, req.user!.id);
     await query('UPDATE surveys SET completed_at = now() WHERE id = $1 AND completed_at IS NULL', [
-      req.params.surveyId,
+      param(req, 'surveyId'),
     ]);
     res.json({ ok: true });
   }),

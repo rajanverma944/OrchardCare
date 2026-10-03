@@ -4,7 +4,6 @@ import { closePool, pool } from './db';
 import { runMigrations } from './migrate';
 import { buildApp } from './app';
 import { pruneRefreshTokens } from './services/authService';
-import { photoStatic } from './photoStatic';
 
 async function main(): Promise<void> {
   fs.mkdirSync(config.photosDir, { recursive: true });
@@ -15,7 +14,6 @@ async function main(): Promise<void> {
   await pruneRefreshTokens();
 
   const app = buildApp();
-  app.use('/photos', photoStatic());
 
   const server = app.listen(config.port, '0.0.0.0', () => {
     console.log(`OrchardCare API listening on ${config.publicBaseUrl} (port ${config.port})`);
