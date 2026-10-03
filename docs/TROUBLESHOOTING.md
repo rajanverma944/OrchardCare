@@ -90,8 +90,13 @@ C:\oc\tools\android-sdk\platform-tools\adb.exe -s 127.0.0.1:5555 pull /sdcard/cr
 Each adb session is flaky — retry the pair; it lands within a few attempts.
 
 ### App can't reach the server ("network error" at login)
+- **Release APKs on Android 9+ block cleartext HTTP by default** — `http://192.168.x.x:5092`
+  fails with "Network request failed" even though the server is up and pingable. Fixed in v7 via
+  `expo-build-properties` with `android.usesCleartextTraffic: true` in `mobile/app.json`.
+  **This flag must be removed (and the backend served over HTTPS) before any public release.**
 - Backend running? `curl http://127.0.0.1:5092/health` on the PC.
 - Same Wi-Fi? BlueStacks uses the PC's network (usually fine); real phones need the same network.
+  Verify reachability from the emulator: `adb shell ping -c 2 192.168.1.7`.
 - Windows Firewall may block inbound 5092 — allow Node/Private networks once, or check with the
   firewall prompt at first run.
 - Server address in app Settings must be `http://<PC-LAN-IP>:5092` (default `192.168.1.7`).

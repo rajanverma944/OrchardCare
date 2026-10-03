@@ -13,7 +13,7 @@
     },
     "android": {
       "package": "com.rajanverma944.orchardcare",
-      "versionCode": 6,
+      "versionCode": 7,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
@@ -39,7 +39,15 @@
         }
       ],
       "expo-asset",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
     ]
   }
 }

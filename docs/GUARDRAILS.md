@@ -49,6 +49,12 @@ code. If a change would violate one of these, stop and discuss in a PR descripti
 
 ## Process guardrails
 
+24. **`usesCleartextTraffic: true` is a local-dev concession.** It lets the app talk to the
+    backend over plain `http://` (required for emulator/LAN testing). Before any public
+    distribution: serve the backend over HTTPS and remove the flag from `mobile/app.json`.
+25. **Before any user-facing release build**: rotate `JWT_SECRET`, remove cleartext flag,
+    create a proper signing keystore (not the debug one), and re-run the full backend suite.
+
 19. **Typecheck before commit**: `npm run typecheck` in `backend/` and `mobile/`. Tests green:
     `npm test` in `backend/`. The suite takes ~70s — run it.
 20. **Port discipline**: backend 5092, our PostgreSQL 5433 (5432 belongs to another service on
