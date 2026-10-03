@@ -1,0 +1,38 @@
+# --- secrets: never commit ---
+.env
+*.local
+jwt-secret.txt
+lan-ip.txt
+**/.env
+
+# --- data & runtime artifacts ---
+data/
+backend/data/
+*.log
+pg.log
+
+# --- local toolchains & databases (downloaded by setup scripts, ~2 GB) ---
+tools/
+tools/**
+
+# --- node ---
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+
+# --- OS / editor ---
+Thumbs.db
+.DS_Store
+Desktop.ini
+.vscode/
+.idea/
+
+# --- android / expo ---
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.keystore
+!debug.keystore
+.expo/
