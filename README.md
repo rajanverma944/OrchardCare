@@ -52,6 +52,38 @@ pruning surveys with yield estimation, and an offline-first mobile experience fo
 
 ## Setup (Windows)
 
+Everything runs portably — no admin rights, nothing installed system-wide. The toolchain
+(Node, JDK 21, Android SDK, PostgreSQL, Git) lives in `tools/` (git-ignored, auto-provisioned).
+
+### 1. Start the backend
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\start-all.ps1
+# API on http://192.168.1.7:5092 - health check: GET /health
+```
+
+### 2. Build / install the Android app
+
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
+# APK: mobile\android\app\build\outputs\apk\release\app-release.apk
+```
+
+Install the APK on your phone (copy + open, enable "unknown sources") or into BlueStacks
+(drag the APK onto the BlueStacks window, or use its Media Manager).
+
+### 3. Point the app at your PC
+
+In the app: **Settings → Server address** — the default `http://192.168.1.7:5092` is this PC's
+Wi-Fi LAN IP. Phone/BlueStacks must be on the same Wi-Fi network. Sign up, add an orchard, and go.
+
+### Tests
+
+```powershell
+cd backend; npm test   # 41 unit + integration tests (uses orchardcare_test DB)
+node scripts\smoke.mjs # live smoke test against the running server
+```
+
 See [backend/README.md](backend/README.md) and [docs/STATUS.md](docs/STATUS.md).
 
 ---

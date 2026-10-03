@@ -1,0 +1,38 @@
+{
+  "expo": {
+    "name": "OrchardCare",
+    "slug": "orchardcare",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#1d5c38",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "package": "com.rajanverma944.orchardcare",
+      "versionCode": 1,
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "INTERNET"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#1d5c38"
+      }
+    },
+    "plugins": [
+      "expo-secure-store",
+      [
+        "expo-location",
+        { "locationAlwaysAndWhenInUsePermission": "OrchardCare records the GPS position of each tree in your orchard." }
+      ],
+      [
+        "expo-image-picker",
+        { "cameraPermission": "OrchardCare uses the camera to photograph your trees for health analysis." }
+      ]
+    ]
+  }
+}

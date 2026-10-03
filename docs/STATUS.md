@@ -25,12 +25,11 @@
 
 ## In progress
 
-- Backend test suite (`tests/`): unit tests written, integration suite being added; then
-  `npm install` + `npm test` until green.
-- Mobile app: Expo/React Native scaffolding, screens (auth, orchards, tree catalog, 360 capture,
-  spray plan, surveys, advice, settings), SQLite offline cache + sync queue.
-- Android build: Expo prebuild + Gradle APK, installable on BlueStacks/device.
-- End-to-end verification of the running API, start-scripts, and a security review pass.
+- **Android APK build** running (Gradle `assembleRelease`). Start scripts + APK install
+  instructions are in the root README.
+- Mobile screens are implemented (auth, orchards, trees + 360° capture, spray calendar, harvest
+  survey, advice, settings with offline sync + server address) and typecheck clean.
+- Remaining: verify APK end-to-end on an emulator, and a final security review pass.
 
 ## Environment facts (this machine)
 
