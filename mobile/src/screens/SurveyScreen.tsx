@@ -184,13 +184,13 @@ export default function SurveyScreen() {
               <Text style={{ fontSize: ui.font.body, fontWeight: '700', color: palette.text }}>{selected.code} - harvest & canopy check</Text>
               <View style={{ flexDirection: 'row', gap: ui.gap, marginTop: 10 }}>
                 <View style={{ flex: 1, gap: 10 }}>
-                  {simpleField('Fruit count (est.)', fruitCount, setFruitCount, 'e.g. 180')}
-                  {simpleField('Avg fruit weight (g)', fruitWeight, setFruitWeight, '150')}
+                  {simpleField(ui, 'Fruit count (est.)', fruitCount, setFruitCount, 'e.g. 180')}
+                  {simpleField(ui, 'Avg fruit weight (g)', fruitWeight, setFruitWeight, '150')}
                 </View>
                 <View style={{ flex: 1, gap: 10 }}>
-                  {simpleField('Canopy density %', canopy, setCanopy, 'foliage fullness')}
-                  {simpleField('Bare wood %', bareWood, setBareWood, 'dead/bare wood')}
-                  {simpleField('Water sprouts', sprouts, setSprouts, 'upright shoots')}
+                  {simpleField(ui, 'Canopy density %', canopy, setCanopy, 'foliage fullness')}
+                  {simpleField(ui, 'Bare wood %', bareWood, setBareWood, 'dead/bare wood')}
+                  {simpleField(ui, 'Water sprouts', sprouts, setSprouts, 'upright shoots')}
                 </View>
               </View>
               <View style={{ backgroundColor: palette.green100, borderRadius: 10, padding: 10, marginTop: 10 }}>
@@ -212,8 +212,7 @@ export default function SurveyScreen() {
   );
 }
 
-function simpleField(label: string, value: string, setter: (v: string) => void, hint: string) {
-  const ui = useUi();
+function simpleField(ui: ReturnType<typeof useUi>, label: string, value: string, setter: (v: string) => void, hint: string) {
   return (
     <View style={{ gap: 4 }}>
       <Text style={{ fontSize: ui.font.small, fontWeight: '600', color: palette.text }}>{label}</Text>

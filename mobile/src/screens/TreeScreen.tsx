@@ -30,7 +30,6 @@ export default function TreeScreen() {
   const [detail, setDetail] = useState<TreeDetail | null>(null);
   const [busy, setBusy] = useState(true);
   const [capturing, setCapturing] = useState(false);
-  const [ringStep, setRingStep] = useState(0);
   const [capturedDirs, setCapturedDirs] = useState<Set<string>>(new Set());
   const [status, setStatus] = useState<string | null>(null);
 
@@ -60,11 +59,15 @@ export default function TreeScreen() {
       if (shot.canceled || shot.assets.length === 0) return;
       const uri = shot.assets[0].uri;
 
+      // Emulators have no compass and getHeadingAsync may hang forever - race it.
       let headingDeg: number | undefined;
       try {
-        const heading = await Location.getHeadingAsync();
+        const heading = await Promise.race([
+          Location.getHeadingAsync(),
+          new Promise<null>((r) => setTimeout(() => r(null), 2500)),
+        ]);
         if (heading?.trueHeading != null) headingDeg = Math.round(heading.trueHeading);
-      } catch { /* heading not available */ }
+      } catch { /* no compass on this device */ }
 
       const clientPhotoId = clientId();
       try {
@@ -73,18 +76,16 @@ export default function TreeScreen() {
         await enqueuePhoto(treeId, uri, direction, headingDeg ?? null);
         setStatus('Saved offline - will upload when you have signal.');
       }
-      setCapturedDirs((s) => new Set(s).add(direction));
-      if (direction === RING[rngIdx(ringStep)]?.dir) advanceRing();
+      const updated = new Set(capturedDirs).add(direction);
+      setCapturedDirs(updated);
+      if (RING.every((r) => updated.has(r.dir))) {
+        setCapturing(false);
+        setStatus('360° ring complete! Tap "Recalculate from photos" below.');
+      }
       await load();
     } catch (e: any) {
-      setStatus(e.message ?? 'Could not take photo');
+      setStatus(e?.message ?? 'Could not take photo');
     }
-  }
-
-  function rngIdx(step: number) { return step % RING.length; }
-  function advanceRing() {
-    setRingStep((s) => s + 1);
-    if (ringStep + 1 >= RING.length) setCapturing(false);
   }
 
   async function recalculate() {
@@ -99,6 +100,7 @@ export default function TreeScreen() {
   }
 
   const insight = detail?.photoInsight;
+  const nextDir = RING.find((r) => !capturedDirs.has(r.dir)) ?? null;
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: palette.bg }} contentContainerStyle={{ padding: ui.pad, gap: ui.gap, paddingBottom: 40 }}>
@@ -124,17 +126,38 @@ export default function TreeScreen() {
               Keep the trunk centred, stand about 2 m back, and walk clockwise. One photo per direction - the checklist tracks your progress.
             </Text>
             {!capturing ? (
-              <Pressable onPress={() => { setCapturing(true); setRingStep(0); }} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? palette.green900 : palette.green700, marginTop: 12 }]}>
+              <Pressable onPress={() => setCapturing(true)} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? palette.green900 : palette.green700, marginTop: 12 }]}>
                 <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Start 360° capture</Text>
               </Pressable>
             ) : (
               <View style={{ marginTop: 12, gap: ui.gap * 0.7 }}>
                 <Text style={{ fontSize: ui.font.body, fontWeight: '700', color: palette.green700 }}>
-                  Now photograph: {RING[rngIdx(ringStep)].label} ({rngIdx(ringStep) + 1}/8)
+                  {nextDir
+                    ? `Next suggested: ${nextDir.label} (${capturedDirs.size}/8 captured)`
+                    : 'All 8 directions captured!'}
                 </Text>
-                <Pressable onPress={() => takePhoto(RING[rngIdx(ringStep)].dir)} style={[btn(ui), { backgroundColor: palette.green500 }]}>
-                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Open camera</Text>
-                </Pressable>
+                {nextDir && (
+                  <Pressable onPress={() => takePhoto(nextDir.dir)} style={[btn(ui), { backgroundColor: palette.green500 }]}>
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Open camera</Text>
+                  </Pressable>
+                )}
+                <Text style={{ color: palette.textDim, fontSize: ui.font.small }}>Or tap any direction to capture it in any order:</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
+                  {RING.map((r) => {
+                    const done = capturedDirs.has(r.dir);
+                    return (
+                      <Pressable
+                        key={r.dir}
+                        onPress={() => takePhoto(r.dir)}
+                        style={{ backgroundColor: done ? palette.green100 : '#eceff0', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, borderWidth: StyleSheet.hairlineWidth, borderColor: r.dir === nextDir?.dir ? palette.green700 : 'transparent' }}
+                      >
+                        <Text style={{ color: done ? palette.green700 : palette.text, fontSize: ui.font.small, fontWeight: '600' }}>
+                          {done ? `${r.dir} ✓` : r.dir}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
                 <Pressable onPress={() => setCapturing(false)} hitSlop={8}>
                   <Text style={{ color: palette.textDim, textAlign: 'center', fontSize: ui.font.small }}>Finish capture</Text>
                 </Pressable>
