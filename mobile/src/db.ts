@@ -111,6 +111,17 @@ export async function cachedTrees(orchardId: string): Promise<CachedTree[]> {
   );
 }
 
+/**
+ * Show an offline-created tree immediately: insert a local row keyed by the
+ * client id. The next successful server refresh replaces it with the real row.
+ */
+export async function insertLocalTree(orchardId: string, clientId: string, code: string, variety: string | null): Promise<void> {
+  await db.runAsync(
+    `INSERT OR REPLACE INTO trees (id, orchard_id, code, variety, photo_count) VALUES (?,?,?,?,0)`,
+    [clientId, orchardId, code, variety],
+  );
+}
+
 export interface QueueItem {
   clientId: string;
   op: string;

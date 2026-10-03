@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { request, uploadPhoto } from '../api';
 import { enqueuePhoto, kvGet } from '../db';
-import { flushQueue } from '../sync';
+import { clientId, flushQueue } from '../sync';
 import { Chip, palette, useUi } from '../ui';
 
 const RING: { dir: string; label: string }[] = [
@@ -66,7 +66,7 @@ export default function TreeScreen() {
         if (heading?.trueHeading != null) headingDeg = Math.round(heading.trueHeading);
       } catch { /* heading not available */ }
 
-      const clientPhotoId = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      const clientPhotoId = clientId();
       try {
         await uploadPhoto(treeId, uri, { direction, headingDeg, clientPhotoId });
       } catch {

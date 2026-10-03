@@ -3,7 +3,7 @@
 // Offline entries fall back to the sync queue.
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { request } from '../api';
+import { ApiError, request } from '../api';
 import { clientId } from '../sync';
 import { enqueue } from '../db';
 import { Chip, palette, useUi } from '../ui';
@@ -108,12 +108,16 @@ export default function SurveyScreen() {
       setStatus(`${selected.code} saved (${res.computedPruning} pruning${kg}). Next tree!`);
       const detail = await request(`/api/surveys/${surveyId}`);
       setSummary(detail.summary);
-    } catch {
-      try {
-        await enqueue({ clientId: payload.clientEntryId as string, op: 'survey.entry.create', payload: { ...payload, surveyId } });
-        setStatus(`${selected.code} saved offline - will sync with signal.`);
-      } catch {
-        setStatus('Could not save entry.');
+    } catch (e: any) {
+      if (e instanceof ApiError) {
+        setStatus(`Could not save: ${e.message}`);
+      } else {
+        try {
+          await enqueue({ clientId: payload.clientEntryId as string, op: 'survey.entry.create', payload: { ...payload, surveyId } });
+          setStatus(`${selected.code} saved offline - will sync with signal.`);
+        } catch {
+          setStatus('Could not save entry.');
+        }
       }
     }
     setSelected(null);

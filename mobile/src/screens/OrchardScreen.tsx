@@ -5,8 +5,8 @@ import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, Vi
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { clientId } from '../sync';
-import { request } from '../api';
-import { cacheTrees, cachedTrees, enqueue, type CachedTree } from '../db';
+import { ApiError, request } from '../api';
+import { cacheTrees, cachedTrees, enqueue, insertLocalTree, type CachedTree } from '../db';
 import { Chip, palette, useUi } from '../ui';
 
 const GRADE_TONE: Record<string, 'green' | 'amber' | 'red' | 'grey'> = {
@@ -91,9 +91,15 @@ export default function OrchardScreen() {
 
       try {
         await request(`/api/trees/orchards/${orchardId}/trees`, { method: 'POST', body: JSON.stringify(payload) });
-      } catch {
+      } catch (e: any) {
+        if (e instanceof ApiError) {
+          // Server answered and rejected (validation/conflict) - queueing would
+          // never succeed, so surface it instead of swallowing it.
+          throw new Error(e.message);
+        }
         // Offline: queue the creation with the orchard id embedded for sync
         await enqueue({ clientId: payload.clientTreeId as string, op: 'tree.create', payload: { ...payload, orchardId } });
+        await insertLocalTree(orchardId, payload.clientTreeId as string, code.trim(), variety.trim() || null);
       }
       setCode(''); setVariety(''); setAdding(false);
       await loadFromCache();

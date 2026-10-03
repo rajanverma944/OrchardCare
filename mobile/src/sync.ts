@@ -15,8 +15,21 @@ export interface SyncReport {
   photosFailed: number;
 }
 
-function clientId(): string {
-  return globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
+/**
+ * RFC4122 v4-shaped id. Used purely as an idempotency key (the server
+ * requires a UUID); crypto strength is irrelevant, and Hermes does not
+ * provide crypto.randomUUID, so we build one ourselves.
+ */
+function uuidv4(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
+export function clientId(): string {
+  return globalThis.crypto?.randomUUID?.() ?? uuidv4();
 }
 
 /** Flush the offline queue; returns a report for the UI. */
@@ -60,5 +73,3 @@ export async function flushQueue(): Promise<SyncReport> {
   }
   return report;
 }
-
-export { clientId };
