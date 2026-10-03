@@ -62,6 +62,21 @@ Other launch-crash causes we ruled out along the way (kept here so you don't cha
 - ~~missing JS bundle~~ (verified embedded in APK via zip listing)
 - ~~window rotation race~~ (`screenOrientation="portrait"` already locked in the manifest)
 
+**Cause 2 (JS, surfaced only after cause 1 was fixed):** React Native 0.79's lazy
+`react-native` entry **no longer runs `InitializeCore` automatically**, so the app had
+**no `fetch`, `XMLHttpRequest`, `FormData`, `Blob` globals at all**. The first module touching
+them crashed with `Property 'FormData' doesn't exist` (JSC wording: `Can't find variable:
+FormData`) on the `mqt_js` thread. Fix: the entry imports it explicitly — `mobile/index.js`:
+```js
+import 'react-native/Libraries/Core/InitializeCore';
+```
+Note: `FormData` moved from `Libraries/Blob/` to `Libraries/Network/` in RN 0.79 — old polyfill
+snippets pointing at `Blob/FormData` will not resolve.
+
+**Verified fixed on BlueStacks (Android 9 "P64", 2026-10-03, APK v6):** crash buffer empty
+after launch + `ReactNativeJS: Running "main"`. Final config: `newArchEnabled=false`, Hermes
+engine (default), `InitializeCore` imported in `index.js`.
+
 **Enabling ADB on BlueStacks (needed for any of this diagnosis):** Settings → Advanced →
 tick *Android Debug Bridge*. Then the reliable capture pattern (servers die with their console;
 large streams drop — small on-device writes + `pull` work):
