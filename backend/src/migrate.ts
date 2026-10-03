@@ -2,7 +2,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pool } from './db';
 
-const MIGRATIONS_DIR = path.join(__dirname, '..', 'sql', 'migrations');
+const MIGRATIONS_DIR = [path.join(__dirname, '..', 'sql', 'migrations'), path.join(__dirname, '..', '..', 'sql', 'migrations')]
+  .find((p) => fs.existsSync(p)) ?? path.join(__dirname, '..', 'sql', 'migrations');
 
 /** Applies pending .sql migrations (each inside its own transaction). Idempotent. */
 export async function runMigrations(): Promise<string[]> {

@@ -4,8 +4,10 @@ import { z } from 'zod';
 
 /** Minimal .env loader (avoids an extra dependency). */
 function loadDotEnv(): void {
-  const envPath = path.join(__dirname, '..', '.env');
-  if (!fs.existsSync(envPath)) return;
+  // src/config.ts (tsx) and dist/src/config.js (compiled) resolve differently.
+  const candidates = [path.join(__dirname, '..', '.env'), path.join(__dirname, '..', '..', '.env')];
+  const envPath = candidates.find((p) => fs.existsSync(p));
+  if (!envPath) return;
   const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
   for (const line of lines) {
     const trimmed = line.trim();
