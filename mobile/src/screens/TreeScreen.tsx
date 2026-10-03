@@ -1,3 +1,5 @@
+// Tree detail: guided 360-degree capture ring (8 directions), photo thumbnails, and the
+// aggregated photo insight (leaf strength / canopy density / disease risks) with recalculation.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useFocusEffect, useRoute } from '@react-navigation/native';

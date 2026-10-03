@@ -1,3 +1,5 @@
+/** Auth endpoints: register / login / refresh / logout.
+ *  Rate-limited (20 req / 15 min per IP); refresh tokens rotate on every use. */
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { asyncHandler, ApiError } from '../middleware/error';

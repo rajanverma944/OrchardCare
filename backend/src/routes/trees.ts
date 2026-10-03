@@ -1,3 +1,6 @@
+/** Tree catalog: list / create (idempotent by clientTreeId) / detail bundle (photos,
+ *  observations, survey history, photo insight) / update / soft-delete / observations /
+ *  recalculate-from-photos. All access guarded by repo.getOwned*. */
 import { Router } from 'express';
 import { param } from '../params';
 import path from 'node:path';

@@ -1,3 +1,5 @@
+// Advice handbook: month-by-month care calendar + disease/pest encyclopedia.
+// Fetched once and cached in SQLite (kv) - fully readable offline.
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { request } from '../api';

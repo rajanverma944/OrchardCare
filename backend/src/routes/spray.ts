@@ -1,3 +1,6 @@
+/** Spray calendar endpoints: materialises the 12-stage Shimla plan for an orchard+season
+ *  (elevation-shifted dates, idempotent), merges stored task status with derived urgency
+ *  (due-soon / in-window / overdue) and lets users mark tasks done with the product used. */
 import { Router } from 'express';
 import { param } from '../params';
 import { query } from '../db';

@@ -14,8 +14,12 @@ $env:ANDROID_HOME = 'C:\oc\tools\android-sdk'
 $env:PATH = "C:\oc\tools\node;C:\oc\tools\jdk21\bin;$env:PATH"
 Set-Location 'C:\oc\mobile\android'
 & .\gradlew.bat assembleRelease --no-daemon
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "BUILD FAILED (exit $LASTEXITCODE) - NOT copying a stale APK."
+    exit 1
+}
 Write-Host ''
-Write-Host 'APK output (if BUILD SUCCESSFUL):'
+Write-Host 'APK output:'
 Get-ChildItem 'C:\oc\mobile\android\app\build\outputs\apk\release\*.apk' | ForEach-Object {
     Copy-Item $_.FullName 'C:\oc\OrchardCare.apk' -Force
     Write-Host $_.FullName ' -> C:\oc\OrchardCare.apk'

@@ -1,3 +1,5 @@
+/** PostgreSQL pool wrapper. query<T>() for typed rows, withTransaction() for multi-statement
+ *  atomic work (used by the offline sync batch), closePool() for graceful shutdown. */
 import { Pool, type PoolClient, type QueryResultRow } from 'pg';
 import { config } from './config';
 

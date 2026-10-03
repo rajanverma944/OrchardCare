@@ -1,3 +1,5 @@
+/** Server entry point: ensure photo dir, apply migrations, prune dead refresh tokens,
+ *  listen on 0.0.0.0 (LAN-reachable for phones/BlueStacks), graceful shutdown handlers. */
 import fs from 'node:fs';
 import { config } from './config';
 import { closePool, pool } from './db';

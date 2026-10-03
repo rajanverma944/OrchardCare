@@ -1,3 +1,5 @@
+/** Orchards CRUD + list enriched with tree count, average health and next spray stage.
+ *  Every query is scoped by owner_id - an orchard you do not own simply does not exist. */
 import { Router } from 'express';
 import { query, withTransaction } from '../db';
 import { requireAuth } from '../middleware/auth';

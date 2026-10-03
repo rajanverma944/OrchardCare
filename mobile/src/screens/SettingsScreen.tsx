@@ -1,3 +1,5 @@
+// Settings: account, offline-queue status with manual "Sync now", and the server address
+// (SecureStore) pointing the app at the PC running the backend.
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useAuth } from '../../App';

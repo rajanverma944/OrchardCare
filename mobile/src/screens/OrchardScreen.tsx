@@ -1,3 +1,5 @@
+// Trees of one orchard. "Add tree" grabs GPS via expo-location and either POSTs directly
+// or enqueues a tree.create sync op when offline. Tapping a tree opens the 360 capture.
 import React, { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';

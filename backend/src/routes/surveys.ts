@@ -1,3 +1,6 @@
+/** Field surveys: harvest (fruit counts -> kg) and pruning (canopy/bare-wood/sprouts -> verdict).
+ *  Yield + pruning verdicts are computed SERVER-SIDE (yieldService) so app and reports agree.
+ *  Entry insert is shared with the offline sync path and is idempotent per clientEntryId. */
 import { Router } from 'express';
 import { param } from '../params';
 import { query, withTransaction, type DbClient } from '../db';

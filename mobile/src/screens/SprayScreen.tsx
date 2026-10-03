@@ -1,3 +1,5 @@
+// Per-orchard spray calendar rendered from the backend plan (12 Shimla stages, elevation-
+// shifted dates). Expand a stage for products/rates/bee-safety; mark-as-sprayed records it.
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { request } from '../api';

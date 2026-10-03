@@ -1,3 +1,6 @@
+/** Photo upload pipeline: magic-byte sniff, sharp decode + re-encode (mozjpeg) + thumbnail,
+ *  colour-space analysis stored as jsonb, dedupe by clientPhotoId for offline retries.
+ *  Files live under PHOTOS_DIR/<tree-prefix>/<treeId>/ with GUID names served at /photos. */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';

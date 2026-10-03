@@ -1,3 +1,5 @@
+/** Express app factory (shared by server and tests): helmet, cors, json body limits,
+ *  rate limiting, route mounting, 404 + error handlers. Photo static serving lives here too. */
 import cors from 'cors';
 import express, { type Express } from 'express';
 import rateLimit from 'express-rate-limit';

@@ -1,3 +1,6 @@
+// Harvest survey runner: pick orchard -> start/open this season's survey -> record trees.
+// Live pruning verdict is computed locally for instant feedback; server recomputes on save.
+// Offline entries fall back to the sync queue.
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { request } from '../api';

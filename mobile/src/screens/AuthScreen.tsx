@@ -1,3 +1,4 @@
+// Sign-in / sign-up. Tokens + user land in SecureStore; App.tsx switches to the main tabs.
 import React, { useState } from 'react';
 import {
   ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View,

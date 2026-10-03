@@ -4,7 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, View } from 'react-native';
+import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 import { palette } from './src/ui';
@@ -30,6 +30,41 @@ export const useAuth = () => useContext(AuthContext);
 
 const Stack = createNativeStackNavigator();
 const Tabs = createBottomTabNavigator();
+
+/** Full-screen red error view - never leave the user on a silent white screen. */
+function BootError({ title, message }: { title: string; message: string }) {
+  return (
+    <ScrollView style={{ flex: 1, backgroundColor: '#fff' }} contentContainerStyle={{ padding: 24, paddingTop: 64 }}>
+      <Text style={{ color: '#c0392b', fontSize: 20, fontWeight: '800', marginBottom: 12 }}>{title}</Text>
+      <Text style={{ color: '#1c2b22', fontSize: 14, fontFamily: 'monospace' }}>{message}</Text>
+      <Text style={{ color: '#5d6f64', fontSize: 13, marginTop: 20 }}>
+        Please screenshot this screen and share it when reporting the problem.
+      </Text>
+    </ScrollView>
+  );
+}
+
+/** Catches any render/navigation crash and surfaces it instead of going blank. */
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode },
+  { error: Error | null }
+> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <BootError
+          title="OrchardCare hit an unexpected error"
+          message={`${this.state.error.message}\n\n${this.state.error.stack ?? ''}`}
+        />
+      );
+    }
+    return this.props.children;
+  }
+}
 
 function MainTabs() {
   return (
@@ -65,13 +100,19 @@ function MainTabs() {
 export default function App() {
   const [user, setUser] = useState<StoredUser | null>(null);
   const [booting, setBooting] = useState(true);
+  const [bootError, setBootError] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      await initDb();
-      const { access } = await getTokens();
-      if (access) setUser(await loadUser());
-      setBooting(false);
+      try {
+        await initDb();
+        const { access } = await getTokens();
+        if (access) setUser(await loadUser());
+      } catch (e: any) {
+        setBootError(`${e?.message ?? String(e)}\n\n${e?.stack ?? ''}`);
+      } finally {
+        setBooting(false);
+      }
     })();
   }, []);
 
@@ -88,6 +129,8 @@ export default function App() {
     [user],
   );
 
+  if (bootError) return <BootError title="OrchardCare failed to start" message={bootError} />;
+
   if (booting) {
     return (
       <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.bg }}>
@@ -97,23 +140,23 @@ export default function App() {
   }
 
   return (
-    <AuthContext.Provider value={auth}>
-      <StatusBar style="light" />
-      <NavigationContainer>
-        {auth.signedIn ? (
-          <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: palette.green700 }, headerTintColor: '#fff' }}>
-            <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
-            <Stack.Screen name="Orchard" component={OrchardScreen} options={({ route }) => ({ title: (route.params as any)?.name ?? 'Orchard' })} />
-            <Stack.Screen name="Tree" component={TreeScreen} options={({ route }) => ({ title: (route.params as any)?.code ?? 'Tree' })} />
-          </Stack.Navigator>
-        ) : (
-          <Stack.Navigator screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="Auth" component={AuthScreen} />
-          </Stack.Navigator>
-        )}
-      </NavigationContainer>
-    </AuthContext.Provider>
+    <ErrorBoundary>
+      <AuthContext.Provider value={auth}>
+        <StatusBar style="light" />
+        <NavigationContainer>
+          {auth.signedIn ? (
+            <Stack.Navigator screenOptions={{ headerStyle: { backgroundColor: palette.green700 }, headerTintColor: '#fff' }}>
+              <Stack.Screen name="Main" component={MainTabs} options={{ headerShown: false }} />
+              <Stack.Screen name="Orchard" component={OrchardScreen} options={({ route }) => ({ title: (route.params as any)?.name ?? 'Orchard' })} />
+              <Stack.Screen name="Tree" component={TreeScreen} options={({ route }) => ({ title: (route.params as any)?.code ?? 'Tree' })} />
+            </Stack.Navigator>
+          ) : (
+            <Stack.Navigator screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="Auth" component={AuthScreen} />
+            </Stack.Navigator>
+          )}
+        </NavigationContainer>
+      </AuthContext.Provider>
+    </ErrorBoundary>
   );
 }
-
-export { SecureStore };

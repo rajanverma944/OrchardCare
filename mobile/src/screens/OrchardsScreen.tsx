@@ -1,3 +1,5 @@
+// Orchard list: reads SQLite first (offline), refreshes from API, inline create form.
+// HealthBar shows average tree health per orchard.
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
