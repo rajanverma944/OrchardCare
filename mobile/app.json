@@ -6,13 +6,14 @@
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
+    "jsEngine": "jsc",
     "splash": {
       "backgroundColor": "#1d5c38",
       "resizeMode": "contain"
     },
     "android": {
       "package": "com.rajanverma944.orchardcare",
-      "versionCode": 2,
+      "versionCode": 3,
       "permissions": [
         "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",

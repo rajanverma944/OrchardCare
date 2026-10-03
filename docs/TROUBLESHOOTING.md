@@ -33,15 +33,31 @@ does this; run the build only through it.
 ### `Unable to resolve module expo-asset`
 Stale node_modules vs new prebuild. `cd mobile && npm install && npx expo prebuild -p android --no-install`, rebuild.
 
-### App crashes at launch / white screen on BlueStacks
+### App crashes at launch / white or black screen on BlueStacks
+Follow in this order — each step is one build or one settings change:
+
 1. **Uninstall the old app first**, then install the new APK (stale native state survives
    otherwise).
-2. Confirm `newArchEnabled=false` in `mobile/app.json` (Fabric is unstable on BlueStacks'
-   VirtualBox graphics; this was our actual white-screen cause).
-3. If it still fails: the app now shows a **red error screen** with the JS error + stack —
-   screenshot it. That message is the diagnosis.
-4. Check BlueStacks instance Android version (Settings → About in the instance). Anything
-   Android 9+ (Pie 64-bit "P64") works.
+2. Confirm `newArchEnabled=false` and `jsEngine: "jsc"` in `mobile/app.json` (v3+ APKs have both).
+   - **Hermes vs BlueStacks:** Hermes requires SSE4.2 CPU instructions; BlueStacks' virtualisation
+     sometimes doesn't expose them → SIGSEGV right when the JS engine starts (~2 s after launch),
+     *before any of our code or error screens can render*. Symptom: first launch dies around the
+     time the window animates, relaunch shows a blank (white/black) surface. JSC has no SSE4.2
+     requirement — that's why v3 switched to `"jsEngine": "jsc"`.
+3. **Enable ADB properly so logs can be pulled** (30 seconds, makes diagnosis deterministic):
+   BlueStacks Settings (gear) → Advanced → tick **Android Debug Bridge**. Without this toggle the
+   5555 port half-listens but every shell session drops with `error: closed` (this cost hours —
+   see skills/skill-android-build.md for working capture patterns).
+4. **Graphics renderer**: BlueStacks Settings → Graphics → switch renderer (OpenGL ↔ DirectX) and
+   restart BlueStacks. Some RN builds render black surfaces on one renderer only.
+5. If it still fails with ADB enabled, capture the crash in one terminal session:
+   ```bat
+   set ANDROID_ADB_SERVER_PORT=5900
+   C:\oc\tools\android-sdk\platform-tools\adb.exe start-server
+   C:\oc\tools\android-sdk\platform-tools\adb.exe connect 127.0.0.1:5555
+   C:\oc\tools\android-sdk\platform-tools\adb.exe -s 127.0.0.1:5555 logcat -d -b crash,main > C:\oc\tools\crash.log
+   ```
+   `FATAL EXCEPTION` (Java) or `SIGSEGV` (native) + stack = the diagnosis. Send the file.
 
 ### App can't reach the server ("network error" at login)
 - Backend running? `curl http://127.0.0.1:5092/health` on the PC.
