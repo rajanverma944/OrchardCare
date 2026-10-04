@@ -88,6 +88,62 @@ export default function TreeScreen() {
     }
   }
 
+  /**
+   * Pick photos from the gallery instead of the camera. Multiple selections
+   * are assigned to the remaining directions in ring order (photos wrap
+   * around if more are picked than directions remain - extra angles only
+   * improve the analysis).
+   */
+  async function pickFromGallery() {
+    setStatus(null);
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        setStatus('Gallery permission is needed to pick photos.');
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+        allowsMultipleSelection: true,
+        selectionLimit: 8,
+        exif: true,
+      });
+      if (result.canceled || result.assets.length === 0) return;
+
+      const remaining = RING.filter((r) => !capturedDirs.has(r.dir)).map((r) => r.dir);
+      const dirs = remaining.length > 0 ? remaining : RING.map((r) => r.dir);
+      const updated = new Set(capturedDirs);
+      let uploaded = 0;
+      let queued = 0;
+
+      for (let i = 0; i < result.assets.length; i++) {
+        const direction = dirs[i % dirs.length];
+        const clientPhotoId = clientId();
+        try {
+          await uploadPhoto(treeId, result.assets[i].uri, { direction, clientPhotoId });
+          uploaded++;
+        } catch {
+          await enqueuePhoto(treeId, result.assets[i].uri, direction, null);
+          queued++;
+        }
+        updated.add(direction);
+      }
+
+      setCapturedDirs(updated);
+      setStatus(
+        `${uploaded} photo${uploaded === 1 ? '' : 's'} uploaded${queued ? ` · ${queued} queued for sync` : ''}.`
+      );
+      if (RING.every((r) => updated.has(r.dir))) {
+        setCapturing(false);
+        setStatus((s) => `${s ?? ''} 360° ring complete! Tap "Recalculate from photos" below.`);
+      }
+      await load();
+    } catch (e: any) {
+      setStatus(e?.message ?? 'Could not pick photos');
+    }
+  }
+
   async function recalculate() {
     setStatus(null);
     try {
@@ -126,9 +182,14 @@ export default function TreeScreen() {
               Keep the trunk centred, stand about 2 m back, and walk clockwise. One photo per direction - the checklist tracks your progress.
             </Text>
             {!capturing ? (
-              <Pressable onPress={() => setCapturing(true)} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? palette.green900 : palette.green700, marginTop: 12 }]}>
-                <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Start 360° capture</Text>
-              </Pressable>
+              <>
+                <Pressable onPress={() => setCapturing(true)} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? palette.green900 : palette.green700, marginTop: 12 }]}>
+                  <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Start 360° capture</Text>
+                </Pressable>
+                <Pressable onPress={pickFromGallery} style={({ pressed }) => [btn(ui), { backgroundColor: pressed ? '#dfe5e0' : '#eceff0', borderWidth: StyleSheet.hairlineWidth, borderColor: palette.line }]}>
+                  <Text style={{ color: palette.text, fontWeight: '600', fontSize: ui.font.button }}>Add photos from gallery</Text>
+                </Pressable>
+              </>
             ) : (
               <View style={{ marginTop: 12, gap: ui.gap * 0.7 }}>
                 <Text style={{ fontSize: ui.font.body, fontWeight: '700', color: palette.green700 }}>
@@ -137,9 +198,14 @@ export default function TreeScreen() {
                     : 'All 8 directions captured!'}
                 </Text>
                 {nextDir && (
-                  <Pressable onPress={() => takePhoto(nextDir.dir)} style={[btn(ui), { backgroundColor: palette.green500 }]}>
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Open camera</Text>
-                  </Pressable>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
+                    <Pressable onPress={() => takePhoto(nextDir.dir)} style={[btn(ui), { backgroundColor: palette.green500, flex: 1 }]}>
+                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: ui.font.button }}>Open camera</Text>
+                    </Pressable>
+                    <Pressable onPress={pickFromGallery} style={[btn(ui), { backgroundColor: '#eceff0', flex: 1, borderWidth: StyleSheet.hairlineWidth, borderColor: palette.line }]}>
+                      <Text style={{ color: palette.text, fontWeight: '700', fontSize: ui.font.button }}>Pick from gallery</Text>
+                    </Pressable>
+                  </View>
                 )}
                 <Text style={{ color: palette.textDim, fontSize: ui.font.small }}>Or tap any direction to capture it in any order:</Text>
                 <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6 }}>
