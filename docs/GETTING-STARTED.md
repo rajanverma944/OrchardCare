@@ -50,7 +50,10 @@ powershell -ExecutionPolicy Bypass -File scripts\build-apk.ps1
 # 3. Install the APK
 #    - BlueStacks: drag the APK onto the BlueStacks window (or Media Manager → install).
 #      If upgrading: uninstall the old app first (long-press icon → Uninstall).
-#    - Phone: copy APK over, open it, allow "unknown sources".
+#    - Phone: copy the APK over (USB / Drive / WhatsApp to yourself), open it, allow
+#      "install unknown apps". The APK carries ARM phone + x86 emulator native libraries
+#      and runs on Android 7 through 15 (all Android 10+ releases covered). Phone and
+#      PC must share the same Wi-Fi.
 ```
 
 Then in the app: **Settings → Server address** must point at your PC — default
